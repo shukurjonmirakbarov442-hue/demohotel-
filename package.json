@@ -1,0 +1,25 @@
+{
+  "name": "demohotel",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "latest",
+    "@vitejs/plugin-react": "latest",
+    "firebase": "^12.19.0",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "recharts": "latest",
+    "vite": "latest"
+  },
+  "allowScripts": {
+    "@firebase/util@1.15.3": true,
+    "protobufjs@7.6.6": true
+  }
+}
