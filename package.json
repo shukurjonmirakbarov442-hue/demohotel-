@@ -10,16 +10,18 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "latest",
-    "@vitejs/plugin-react": "latest",
     "firebase": "^12.19.0",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "recharts": "latest",
-    "vite": "latest"
+    "recharts": "latest"
   },
   "allowScripts": {
     "@firebase/util@1.15.3": true,
     "protobufjs@7.6.6": true
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.3.2"
   }
 }
