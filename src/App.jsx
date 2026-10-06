@@ -261,8 +261,12 @@ function PublicCurrencyProvider({ children, availableCurrencies }) {
   useEffect(() => { if (!Object.keys(CURRENCIES).includes(currency)) setCurrency("USD"); }, [currency]);
   return <PublicCurrencyCtx.Provider value={{ currency, setCurrency }}>{children}</PublicCurrencyCtx.Provider>;
 }
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const addDays = (iso, d) => { const dt = new Date(iso); dt.setDate(dt.getDate() + d); return dt.toISOString().slice(0, 10); };
+const toLocalISODate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const todayISO = () => toLocalISODate(new Date());
+const addDays = (iso, d) => {
+  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
+  return toLocalISODate(new Date(year, month - 1, day + d));
+};
 const nightsBetween = (a, b) => Math.max(1, Math.round((new Date(b) - new Date(a)) / 86400000));
 const fmtDate = (iso) => new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
@@ -1672,8 +1676,8 @@ function DashboardHome({ role }) {
   const rooms = state.rooms;
   const counts = ROOM_STATUSES.reduce((a, s) => ({ ...a, [s]: rooms.filter(r => r.status === s).length }), {});
   const todaysBookings = state.bookings.filter(b => b.checkIn === todayISO() || b.created === todayISO());
-  const todaysCheckins = state.bookings.filter(b => b.checkIn === todayISO());
-  const todaysCheckouts = state.bookings.filter(b => b.checkOut === todayISO());
+  const todaysCheckins = state.bookings.filter(b => b.checkIn === todayISO() && ["Pending", "Confirmed"].includes(b.status));
+  const todaysCheckouts = state.bookings.filter(b => b.checkOut === todayISO() && b.status === "Checked-in");
   const todaysRevenue = state.bookings.filter(b => b.checkIn === todayISO() && b.paymentStatus === "Paid").reduce((s, b) => s + b.amount, 0) || 640;
   const monthlyRevenue = state.bookings.reduce((s, b) => s + (b.paymentStatus === "Paid" ? b.amount : 0), 0);
   const occupancy = Math.round((counts.OCCUPIED / rooms.length) * 100);
@@ -1883,13 +1887,18 @@ function RoomFormModal({ open, room, onClose, onSave }) {
   );
 }
 
-function BookingsAdmin({ role, pushToast }) {
+function BookingsAdmin({ role, pushToast, receptionMode = "all" }) {
   const { state, dispatch } = useData();
   const { t } = useLang();
   const [q, setQ] = useState(""); const [status, setStatus] = useState("all"); const [payment, setPayment] = useState("all");
   const [viewB, setViewB] = useState(null); const [editB, setEditB] = useState(null); const [confirmDel, setConfirmDel] = useState(null);
   const canDelete = role === "ADMIN";
   const rows = state.bookings.filter(b =>
+    (receptionMode === "check-in"
+      ? ["Pending", "Confirmed"].includes(b.status) && b.checkIn <= todayISO()
+      : receptionMode === "check-out"
+        ? b.status === "Checked-in" && b.checkOut <= todayISO()
+        : true) &&
     (status === "all" || b.status === status) && (payment === "all" || b.paymentStatus === payment) &&
     (b.guestName.toLowerCase().includes(q.toLowerCase()) || b.id.toLowerCase().includes(q.toLowerCase()) || b.roomNumber.includes(q))
   );
@@ -1926,8 +1935,8 @@ function BookingsAdmin({ role, pushToast }) {
               <button onClick={() => setViewB(b)} className="p-1.5 rounded-lg" style={{ background: "rgba(246,241,231,0.06)" }} title={t("View")}><Eye size={13} color="var(--cream)" /></button>
               <button onClick={() => setEditB(b)} className="p-1.5 rounded-lg" style={{ background: "rgba(246,241,231,0.06)" }} title={t("Edit")}><Pencil size={13} color="var(--cream)" /></button>
               {b.status === "Pending" && <button onClick={() => setStatusFor(b, "Confirmed")} className="p-1.5 rounded-lg" style={{ background: "rgba(90,130,182,0.18)" }} title={t("Confirm")}><Check size={13} color="#a9c6ec" /></button>}
-              {["Confirmed", "Pending"].includes(b.status) && <button onClick={() => setStatusFor(b, "Checked-in")} className="p-1.5 rounded-lg" style={{ background: "rgba(93,138,86,0.2)" }} title={t("Check-in")}><DoorOpen size={13} color="#9fd39a" /></button>}
-              {b.status === "Checked-in" && <button onClick={() => setStatusFor(b, "Checked-out")} className="p-1.5 rounded-lg" style={{ background: "rgba(182,144,90,0.2)" }} title={t("Check-out")}><DoorClosed size={13} color="var(--gold-soft)" /></button>}
+              {["Confirmed", "Pending"].includes(b.status) && b.checkIn <= todayISO() && <button onClick={() => setStatusFor(b, "Checked-in")} className="p-1.5 rounded-lg" style={{ background: "rgba(93,138,86,0.2)" }} title={t("Check-in")}><DoorOpen size={13} color="#9fd39a" /></button>}
+              {b.status === "Checked-in" && b.checkOut <= todayISO() && <button onClick={() => setStatusFor(b, "Checked-out")} className="p-1.5 rounded-lg" style={{ background: "rgba(182,144,90,0.2)" }} title={t("Check-out")}><DoorClosed size={13} color="var(--gold-soft)" /></button>}
               {! ["Cancelled", "Checked-out"].includes(b.status) && <button onClick={() => setStatusFor(b, "Cancelled")} className="p-1.5 rounded-lg" style={{ background: "rgba(178,72,72,0.15)" }} title={t("Cancel")}><X size={13} color="#e79a9a" /></button>}
               {canDelete && <button onClick={() => setConfirmDel(b)} className="p-1.5 rounded-lg" style={{ background: "rgba(178,72,72,0.15)" }} title="Delete"><Trash2 size={13} color="#e79a9a" /></button>}
             </div>
@@ -2720,11 +2729,11 @@ const RECEPTION_NAV = [
   { key: "services", labelKey: "services_nav", icon: ConciergeBell },
 ];
 
-function ReceptionDashboard({ setActive, pushToast }) {
-  const { state, dispatch } = useData();
+function ReceptionDashboard({ openBookings }) {
+  const { state } = useData();
   const { t } = useLang();
-  const arrivals = state.bookings.filter(b => b.checkIn === todayISO() && b.status !== "Cancelled");
-  const departures = state.bookings.filter(b => b.checkOut === todayISO() && b.status !== "Cancelled");
+  const arrivals = state.bookings.filter(b => b.checkIn === todayISO() && ["Pending", "Confirmed"].includes(b.status));
+  const departures = state.bookings.filter(b => b.checkOut === todayISO() && b.status === "Checked-in");
   const [q, setQ] = useState("");
   const found = q ? state.guests.filter(g => g.name.toLowerCase().includes(q.toLowerCase())) : [];
   return (
@@ -2737,9 +2746,9 @@ function ReceptionDashboard({ setActive, pushToast }) {
         <Stat icon={AlertTriangle} label="Pending Bookings" value={state.bookings.filter(b => b.status === "Pending").length} />
       </div>
       <div className="flex flex-wrap gap-3">
-        <Btn onClick={() => setActive("bookings")}><Plus size={15} /> New Booking</Btn>
-        <Btn variant="ghost" onClick={() => setActive("bookings")}><DoorOpen size={15} /> Check-in</Btn>
-        <Btn variant="ghost" onClick={() => setActive("bookings")}><DoorClosed size={15} /> Check-out</Btn>
+        <Btn onClick={() => openBookings("new")}><Plus size={15} /> New Booking</Btn>
+        <Btn variant="ghost" onClick={() => openBookings("check-in")}><DoorOpen size={15} /> Check-in ({arrivals.length})</Btn>
+        <Btn variant="ghost" onClick={() => openBookings("check-out")}><DoorClosed size={15} /> Check-out ({departures.length})</Btn>
       </div>
       <div className="rounded-2xl p-6" style={{ background: "var(--charcoal2)", border: "1px solid var(--line)" }}>
         <div className="dh-serif text-lg mb-4" style={{ color: "var(--cream)" }}>{t("Search Guest")}</div>
@@ -2751,11 +2760,11 @@ function ReceptionDashboard({ setActive, pushToast }) {
       <div className="grid md:grid-cols-2 gap-6">
         <div className="rounded-2xl p-6" style={{ background: "var(--charcoal2)", border: "1px solid var(--line)" }}>
           <div className="dh-serif text-lg mb-4" style={{ color: "var(--cream)" }}>{t("Today's arrivals")}</div>
-          {arrivals.length === 0 ? <EmptyState text="No arrivals today." /> : arrivals.map(b => <div key={b.id} className="flex justify-between py-2.5 text-sm" style={{ borderTop: "1px solid var(--line)" }}><span style={{ color: "var(--cream)" }}>{b.guestName}</span><span style={{ color: "var(--gray)" }}>{t("Room")} {b.roomNumber}</span></div>)}
+          {arrivals.length === 0 ? <EmptyState text="No arrivals today." /> : arrivals.map(b => <div key={b.id} className="flex justify-between py-2.5 text-sm" style={{ borderTop: "1px solid var(--line)" }}><span style={{ color: "var(--cream)" }}>{b.guestName}</span><span style={{ color: "var(--gray)" }}>{t("Room")} {b.roomNumber}</span><button className="text-xs underline" style={{ color: "var(--gold)" }} onClick={() => openBookings("check-in")}>{t("Check-in")}</button></div>)}
         </div>
         <div className="rounded-2xl p-6" style={{ background: "var(--charcoal2)", border: "1px solid var(--line)" }}>
           <div className="dh-serif text-lg mb-4" style={{ color: "var(--cream)" }}>{t("Today's departures")}</div>
-          {departures.length === 0 ? <EmptyState text="No departures today." /> : departures.map(b => <div key={b.id} className="flex justify-between py-2.5 text-sm" style={{ borderTop: "1px solid var(--line)" }}><span style={{ color: "var(--cream)" }}>{b.guestName}</span><span style={{ color: "var(--gray)" }}>{t("Room")} {b.roomNumber}</span></div>)}
+          {departures.length === 0 ? <EmptyState text="No departures today." /> : departures.map(b => <div key={b.id} className="flex justify-between py-2.5 text-sm" style={{ borderTop: "1px solid var(--line)" }}><span style={{ color: "var(--cream)" }}>{b.guestName}</span><span style={{ color: "var(--gray)" }}>{t("Room")} {b.roomNumber}</span><button className="text-xs underline" style={{ color: "var(--gold)" }} onClick={() => openBookings("check-out")}>{t("Check-out")}</button></div>)}
         </div>
       </div>
     </div>
@@ -2814,16 +2823,21 @@ function ReceptionNewBooking({ pushToast }) {
   );
 }
 
-function ReceptionBookings({ pushToast }) {
+function ReceptionBookings({ pushToast, initialMode = "new" }) {
   const { t } = useLang();
-  const [tab, setTab] = useState("new");
+  const [tab, setTab] = useState(initialMode === "new" ? "new" : "manage");
+  const [receptionMode, setReceptionMode] = useState(["check-in", "check-out"].includes(initialMode) ? initialMode : "all");
+  useEffect(() => {
+    setTab(initialMode === "new" ? "new" : "manage");
+    setReceptionMode(["check-in", "check-out"].includes(initialMode) ? initialMode : "all");
+  }, [initialMode]);
   return (
     <div>
       <div className="flex gap-2 mb-6">
         <button onClick={() => setTab("new")} className="px-4 py-2 rounded-full text-sm" style={{ background: tab === "new" ? "var(--gold)" : "rgba(246,241,231,0.06)", color: tab === "new" ? "#15130f" : "var(--cream)" }}>{t("New Booking")}</button>
-        <button onClick={() => setTab("manage")} className="px-4 py-2 rounded-full text-sm" style={{ background: tab === "manage" ? "var(--gold)" : "rgba(246,241,231,0.06)", color: tab === "manage" ? "#15130f" : "var(--cream)" }}>{t("Manage Bookings")}</button>
+        <button onClick={() => { setTab("manage"); setReceptionMode("all"); }} className="px-4 py-2 rounded-full text-sm" style={{ background: tab === "manage" ? "var(--gold)" : "rgba(246,241,231,0.06)", color: tab === "manage" ? "#15130f" : "var(--cream)" }}>{t("Manage Bookings")}</button>
       </div>
-      {tab === "new" ? <ReceptionNewBooking pushToast={pushToast} /> : <BookingsAdmin role="RECEPTION" pushToast={pushToast} />}
+      {tab === "new" ? <ReceptionNewBooking pushToast={pushToast} /> : <BookingsAdmin role="RECEPTION" pushToast={pushToast} receptionMode={receptionMode} />}
     </div>
   );
 }
@@ -2922,10 +2936,15 @@ function ReceptionServices({ pushToast }) {
 function ReceptionApp({ pushToast, exit }) {
   const { user } = useAuth();
   const [active, setActive] = useState("dashboard");
+  const [bookingMode, setBookingMode] = useState("new");
+  const openBookings = (mode) => {
+    setBookingMode(mode);
+    setActive("bookings");
+  };
   return (
     <DashboardShell role={user.role} items={RECEPTION_NAV} active={active} setActive={setActive} onExit={exit}>
-      {active === "dashboard" && <ReceptionDashboard setActive={setActive} pushToast={pushToast} />}
-      {active === "bookings" && <ReceptionBookings pushToast={pushToast} />}
+      {active === "dashboard" && <ReceptionDashboard openBookings={openBookings} />}
+      {active === "bookings" && <ReceptionBookings key={bookingMode} initialMode={bookingMode} pushToast={pushToast} />}
       {active === "rooms" && <ReceptionRooms />}
       {active === "guests" && <GuestsAdmin />}
       {active === "contact_messages" && <ContactMessagesPage pushToast={pushToast} />}
