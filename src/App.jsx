@@ -2125,42 +2125,38 @@ function EmployeeFormModal({ open, emp, onClose, onSave }) {
 function ReportsAdmin() {
   const { state } = useData();
   const { lang, t } = useLang();
-  const currentYear = new Date().getFullYear();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
   const [period, setPeriod] = useState("monthly");
-  const currentMonth = new Date().getMonth();
-  const [startYear, setStartYear] = useState(currentYear);
-  const [endYear, setEndYear] = useState(currentYear);
-  const [startMonth, setStartMonth] = useState(currentMonth);
-  const [endMonth, setEndMonth] = useState(currentMonth);
-  const years = Array.from({ length: 6 }, (_, index) => currentYear - 2 + index);
-  const months = Array.from({ length: 12 }, (_, index) => index);
+  const [periodLength, setPeriodLength] = useState(1);
+  const periodLengths = Array.from({ length: period === "yearly" ? 6 : 36 }, (_, index) => index + 1);
   const locale = { en: "en-US", uz: "uz-UZ", ru: "ru-RU" }[lang] || "en-US";
   const labels = {
-    en: { monthly: "Monthly", yearly: "Yearly", fromYear: "From year", toYear: "To year", fromMonth: "From month", toMonth: "To month", year: "Year", month: "Month", paidRevenue: "Paid revenue", expectedRevenue: "Expected revenue", bookings: "Bookings", monthlyRevenue: "Revenue by period", bookingStatus: "Booking status", serviceUsage: "Service usage and revenue", service: "Service", requests: "Requests", completed: "Completed units", revenue: "Revenue", noServices: "No completed service revenue for this period.", exportBookings: "Export bookings", exportServices: "Export services", periodLabel: "Report period" },
-    uz: { monthly: "Oylik", yearly: "Yillik", fromYear: "Boshlanish yili", toYear: "Tugash yili", fromMonth: "Boshlanish oyi", toMonth: "Tugash oyi", year: "Yil", month: "Oy", paidRevenue: "To'langan tushum", expectedRevenue: "Kutilayotgan tushum", bookings: "Bandlovlar", monthlyRevenue: "Davr bo'yicha tushum", bookingStatus: "Bandlov holati", serviceUsage: "Xizmatlardan foydalanish va tushum", service: "Xizmat turi", requests: "So'rovlar", completed: "Bajarilgan miqdor", revenue: "Tushum", noServices: "Bu davrda bajarilgan xizmatlar tushumi yo'q.", exportBookings: "Bandlovlarni yuklab olish", exportServices: "Xizmatlar hisobotini yuklab olish", periodLabel: "Hisobot davri" },
-    ru: { monthly: "По месяцам", yearly: "По годам", fromYear: "С года", toYear: "По год", fromMonth: "С месяца", toMonth: "По месяц", year: "Год", month: "Месяц", paidRevenue: "Оплаченная выручка", expectedRevenue: "Ожидаемая выручка", bookings: "Бронирования", monthlyRevenue: "Выручка за период", bookingStatus: "Статусы бронирований", serviceUsage: "Использование услуг и выручка", service: "Услуга", requests: "Запросы", completed: "Выполнено единиц", revenue: "Выручка", noServices: "За этот период нет выручки по выполненным услугам.", exportBookings: "Экспорт бронирований", exportServices: "Экспорт услуг", periodLabel: "Период отчёта" },
+    en: { monthly: "Monthly", yearly: "Yearly", monthCount: "Months", yearCount: "Years", paidRevenue: "Paid revenue", expectedRevenue: "Expected revenue", bookings: "Bookings", monthlyRevenue: "Revenue by period", bookingStatus: "Booking status", serviceUsage: "Service usage and revenue", service: "Service", requests: "Requests", completed: "Completed units", revenue: "Revenue", noServices: "No completed service revenue for this period.", exportBookings: "Export bookings", exportServices: "Export services", periodLabel: "Report period" },
+    uz: { monthly: "Oylik", yearly: "Yillik", monthCount: "Oy soni", yearCount: "Yil soni", paidRevenue: "To'langan tushum", expectedRevenue: "Kutilayotgan tushum", bookings: "Bandlovlar", monthlyRevenue: "Davr bo'yicha tushum", bookingStatus: "Bandlov holati", serviceUsage: "Xizmatlardan foydalanish va tushum", service: "Xizmat turi", requests: "So'rovlar", completed: "Bajarilgan miqdor", revenue: "Tushum", noServices: "Bu davrda bajarilgan xizmatlar tushumi yo'q.", exportBookings: "Bandlovlarni yuklab olish", exportServices: "Xizmatlar hisobotini yuklab olish", periodLabel: "Hisobot davri" },
+    ru: { monthly: "По месяцам", yearly: "По годам", monthCount: "Месяцев", yearCount: "Лет", paidRevenue: "Оплаченная выручка", expectedRevenue: "Ожидаемая выручка", bookings: "Бронирования", monthlyRevenue: "Выручка за период", bookingStatus: "Статусы бронирований", serviceUsage: "Использование услуг и выручка", service: "Услуга", requests: "Запросы", completed: "Выполнено единиц", revenue: "Выручка", noServices: "За этот период нет выручки по выполненным услугам.", exportBookings: "Экспорт бронирований", exportServices: "Экспорт услуг", periodLabel: "Период отчёта" },
   }[lang] || {};
   let start;
   let end;
   let chartRows;
   if (period === "monthly") {
-    start = new Date(startYear, startMonth, 1);
-    end = new Date(endYear, endMonth + 1, 1);
-    const monthCount = (endYear - startYear) * 12 + endMonth - startMonth + 1;
-    chartRows = Array.from({ length: monthCount }, (_, index) => {
-      const date = new Date(startYear, startMonth + index, 1);
+    start = new Date(currentYear, currentMonth - periodLength + 1, 1);
+    end = new Date(currentYear, currentMonth, now.getDate() + 1);
+    chartRows = Array.from({ length: periodLength }, (_, index) => {
+      const date = new Date(currentYear, currentMonth - periodLength + 1 + index, 1);
       return {
         key: `${date.getFullYear()}-${date.getMonth()}`,
-        label: date.toLocaleDateString(locale, { month: "short", ...(date.getMonth() === 0 ? { year: "2-digit" } : {}) }),
+        label: date.toLocaleDateString(locale, { month: "short", year: "2-digit" }),
         paid: 0,
         expected: 0,
       };
     });
   } else {
-    start = new Date(startYear, 0, 1);
-    end = new Date(endYear + 1, 0, 1);
-    chartRows = Array.from({ length: endYear - startYear + 1 }, (_, index) => {
-      const chartYear = startYear + index;
+    start = new Date(currentYear - periodLength + 1, 0, 1);
+    end = new Date(currentYear, currentMonth, now.getDate() + 1);
+    chartRows = Array.from({ length: periodLength }, (_, index) => {
+      const chartYear = currentYear - periodLength + 1 + index;
       return { key: chartYear, label: String(chartYear), paid: 0, expected: 0 };
     });
   }
@@ -2222,47 +2218,14 @@ function ReportsAdmin() {
           <div>
             <div className="text-xs uppercase tracking-wider mb-2" style={{ color: "var(--gray)" }}>{labels.periodLabel}</div>
             <div className="inline-flex gap-1 rounded-full p-1" style={{ background: "var(--charcoal3)" }}>
-              {[["monthly", labels.monthly], ["yearly", labels.yearly]].map(([value, label]) => <button key={value} onClick={() => setPeriod(value)} className="px-3 py-2 rounded-full text-sm" style={{ background: period === value ? "var(--gold)" : "transparent", color: period === value ? "#fff" : "var(--cream)" }}>{label}</button>)}
+              {[["monthly", labels.monthly], ["yearly", labels.yearly]].map(([value, label]) => <button key={value} onClick={() => { setPeriod(value); setPeriodLength(length => Math.min(length, value === "yearly" ? 6 : 36)); }} className="px-3 py-2 rounded-full text-sm" style={{ background: period === value ? "var(--gold)" : "transparent", color: period === value ? "#fff" : "var(--cream)" }}>{label}</button>)}
             </div>
           </div>
-          <Field label={labels.fromYear}>
-            <Select value={startYear} onChange={event => {
-              const value = Number(event.target.value);
-              setStartYear(value);
-              if (value > endYear) setEndYear(value);
-              if (period === "monthly" && value >= endYear && startMonth > endMonth) setEndMonth(startMonth);
-            }} className="!w-28">
-              {years.map(value => <option key={value} value={value}>{value}</option>)}
+          <Field label={period === "monthly" ? labels.monthCount : labels.yearCount}>
+            <Select value={periodLength} onChange={event => setPeriodLength(Number(event.target.value))} className="!w-24">
+              {periodLengths.map(value => <option key={value} value={value}>{value}</option>)}
             </Select>
           </Field>
-          {period === "monthly" && <Field label={labels.fromMonth}>
-            <Select value={startMonth} onChange={event => {
-              const value = Number(event.target.value);
-              setStartMonth(value);
-              if (startYear === endYear && value > endMonth) setEndMonth(value);
-            }} className="!w-36">
-              {months.map(value => <option key={value} value={value}>{new Date(2020, value, 1).toLocaleDateString(locale, { month: "long" })}</option>)}
-            </Select>
-          </Field>}
-          <Field label={labels.toYear}>
-            <Select value={endYear} onChange={event => {
-              const value = Number(event.target.value);
-              setEndYear(value);
-              if (value < startYear) setStartYear(value);
-              if (period === "monthly" && value <= startYear && endMonth < startMonth) setStartMonth(endMonth);
-            }} className="!w-28">
-              {years.map(value => <option key={value} value={value}>{value}</option>)}
-            </Select>
-          </Field>
-          {period === "monthly" && <Field label={labels.toMonth}>
-            <Select value={endMonth} onChange={event => {
-              const value = Number(event.target.value);
-              setEndMonth(value);
-              if (startYear === endYear && value < startMonth) setStartMonth(value);
-            }} className="!w-36">
-              {months.map(value => <option key={value} value={value}>{new Date(2020, value, 1).toLocaleDateString(locale, { month: "long" })}</option>)}
-            </Select>
-          </Field>}
         </div>
         <div className="flex flex-wrap gap-2">
           <Btn variant="ghost" onClick={exportBookings}><Download size={15} /> {labels.exportBookings}</Btn>
