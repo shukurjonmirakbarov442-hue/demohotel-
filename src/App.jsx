@@ -2611,8 +2611,8 @@ function SettingsAdmin({ pushToast }) {
   const { t, lang, setLang } = useLang();
   const { user } = useAuth();
   const [form, setForm] = useState(state.settings);
-  const [pw, setPw] = useState({ current: "", adminNext: "", receptionNext: "" });
-  const [showCodes, setShowCodes] = useState({ current: false, adminNext: false, receptionNext: false });
+  const [pw, setPw] = useState({ adminCurrent: "", adminNext: "", receptionCurrent: "", receptionNext: "" });
+  const [showCodes, setShowCodes] = useState({ adminCurrent: false, adminNext: false, receptionCurrent: false, receptionNext: false });
   const [savingCode, setSavingCode] = useState("");
   const securityLabels = {
     en: { current: "Current Admin code", admin: "New Admin code", reception: "New Reception code", changeAdmin: "Change Admin code", changeReception: "Change Reception code", invalid: "Current Admin code is incorrect.", requiredAdmin: "Enter a new Admin code.", requiredReception: "Enter a new Reception code.", missingReception: "Reception account was not found.", adminUpdated: "Admin code updated.", receptionUpdated: "Reception code updated.", showCode: "Show code", hideCode: "Hide code", saveFailed: "Could not save the access code. Check the connection and try again.", sessionOnly: "Firebase is not configured. The code changed for this session only and will reset when the page reloads." },
@@ -2622,7 +2622,7 @@ function SettingsAdmin({ pushToast }) {
   const adminEmployee = state.employees.find(employee => employee.id === user?.id && employee.role === "ADMIN")
     || state.employees.find(employee => employee.username === user?.username && employee.role === "ADMIN");
   const changeAdminCode = async () => {
-    if (!adminEmployee || adminEmployee.password !== pw.current) return pushToast(securityLabels.invalid);
+    if (!adminEmployee || adminEmployee.password !== pw.adminCurrent) return pushToast(securityLabels.invalid);
     if (!pw.adminNext.trim()) return pushToast(securityLabels.requiredAdmin);
     const updatedEmployee = { ...adminEmployee, password: pw.adminNext.trim() };
     setSavingCode("admin");
@@ -2631,7 +2631,7 @@ function SettingsAdmin({ pushToast }) {
       dispatch({ type: "UPSERT_EMPLOYEE", emp: updatedEmployee });
       dispatch({ type: "ADD_AUDIT", entry: { user: adminEmployee.username, action: "Changed Admin access code" } });
       pushToast(isFirebaseConfigured ? securityLabels.adminUpdated : securityLabels.sessionOnly);
-      setPw(p => ({ ...p, current: "", adminNext: "" }));
+      setPw(p => ({ ...p, adminCurrent: "", adminNext: "" }));
     } catch (error) {
       console.error("Failed to save Admin access code:", error);
       pushToast(securityLabels.saveFailed);
@@ -2640,7 +2640,7 @@ function SettingsAdmin({ pushToast }) {
     }
   };
   const changeReceptionCode = async () => {
-    if (!adminEmployee || adminEmployee.password !== pw.current) return pushToast(securityLabels.invalid);
+    if (!adminEmployee || adminEmployee.password !== pw.receptionCurrent) return pushToast(securityLabels.invalid);
     if (!pw.receptionNext.trim()) return pushToast(securityLabels.requiredReception);
     const receptionEmployee = state.employees.find(employee => employee.role === "RECEPTION");
     if (!receptionEmployee) return pushToast(securityLabels.missingReception);
@@ -2651,7 +2651,7 @@ function SettingsAdmin({ pushToast }) {
       dispatch({ type: "UPSERT_EMPLOYEE", emp: updatedEmployee });
       dispatch({ type: "ADD_AUDIT", entry: { user: adminEmployee.username, action: "Changed Reception access code" } });
       pushToast(isFirebaseConfigured ? securityLabels.receptionUpdated : securityLabels.sessionOnly);
-      setPw(p => ({ ...p, current: "", receptionNext: "" }));
+      setPw(p => ({ ...p, receptionCurrent: "", receptionNext: "" }));
     } catch (error) {
       console.error("Failed to save Reception access code:", error);
       pushToast(securityLabels.saveFailed);
@@ -2761,14 +2761,21 @@ function SettingsAdmin({ pushToast }) {
 
       <div className="rounded-2xl p-6 h-fit" style={{ background: "var(--charcoal2)", border: "1px solid var(--line)" }}>
         <div className="dh-serif text-lg mb-5" style={{ color: "var(--cream)" }}>{t("security")}</div>
-        <div className="flex flex-col gap-4">
-          {renderCodeInput("current", securityLabels.current, "current-password")}
-          {renderCodeInput("adminNext", securityLabels.admin, "new-password")}
-          <Btn variant="ghost" onClick={changeAdminCode} disabled={!pw.current || !pw.adminNext || !!savingCode}><Lock size={14} /> {securityLabels.changeAdmin}</Btn>
-          {renderCodeInput("receptionNext", securityLabels.reception, "new-password")}
-          <Btn variant="ghost" onClick={changeReceptionCode} disabled={!pw.current || !pw.receptionNext || !!savingCode}><Lock size={14} /> {securityLabels.changeReception}</Btn>
-          <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--gray)" }}>In production, passwords must be hashed (e.g. bcrypt/argon2) and never stored or compared in plain text — this demo compares them directly for simplicity only.</p>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="flex flex-col gap-4">
+            <div className="text-sm font-medium" style={{ color: "var(--cream)" }}>{securityLabels.changeAdmin}</div>
+            {renderCodeInput("adminCurrent", securityLabels.current, "current-password")}
+            {renderCodeInput("adminNext", securityLabels.admin, "new-password")}
+            <Btn variant="ghost" onClick={changeAdminCode} disabled={!pw.adminCurrent || !pw.adminNext || !!savingCode}><Lock size={14} /> {securityLabels.changeAdmin}</Btn>
+          </div>
+          <div className="flex flex-col gap-4">
+            <div className="text-sm font-medium" style={{ color: "var(--cream)" }}>{securityLabels.changeReception}</div>
+            {renderCodeInput("receptionCurrent", securityLabels.current, "current-password")}
+            {renderCodeInput("receptionNext", securityLabels.reception, "new-password")}
+            <Btn variant="ghost" onClick={changeReceptionCode} disabled={!pw.receptionCurrent || !pw.receptionNext || !!savingCode}><Lock size={14} /> {securityLabels.changeReception}</Btn>
+          </div>
         </div>
+        <p className="text-xs mt-5 leading-relaxed" style={{ color: "var(--gray)" }}>In production, passwords must be hashed (e.g. bcrypt/argon2) and never stored or compared in plain text — this demo compares them directly for simplicity only.</p>
       </div>
     </div>
   );
