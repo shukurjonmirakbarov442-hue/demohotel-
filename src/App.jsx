@@ -597,7 +597,7 @@ function DataProvider({ children }) {
   };
 
   useEffect(() => {
-    if (!db) return;
+    if (!isFirebaseConfigured || !db) return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -627,7 +627,7 @@ function DataProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!db || !hydrated) return;
+    if (!isFirebaseConfigured || !db || !hydrated) return;
     saveStateToFirestore(state).catch(error => console.error("Firebase data save failed:", error));
   }, [state, hydrated]);
 
@@ -636,7 +636,7 @@ function DataProvider({ children }) {
 
 const FIRESTORE_COLLECTIONS = ["rooms", "guests", "employees", "bookings", "housekeeping", "services", "requests", "contactMessages", "auditLog", "notifications"];
 async function saveStateToFirestore(state) {
-  if (!db) return;
+  if (!isFirebaseConfigured || !db) return;
   await Promise.all(FIRESTORE_COLLECTIONS.flatMap(key =>
     state[key].map(item => setDoc(doc(db, key, String(item.id)), item))
   ));
@@ -2613,30 +2613,51 @@ function SettingsAdmin({ pushToast }) {
   const [form, setForm] = useState(state.settings);
   const [pw, setPw] = useState({ current: "", adminNext: "", receptionNext: "" });
   const [showCodes, setShowCodes] = useState({ current: false, adminNext: false, receptionNext: false });
+  const [savingCode, setSavingCode] = useState("");
   const securityLabels = {
-    en: { current: "Current Admin code", admin: "New Admin code", reception: "New Reception code", changeAdmin: "Change Admin code", changeReception: "Change Reception code", invalid: "Current Admin code is incorrect.", requiredAdmin: "Enter a new Admin code.", requiredReception: "Enter a new Reception code.", missingReception: "Reception account was not found.", adminUpdated: "Admin code updated.", receptionUpdated: "Reception code updated.", showCode: "Show code", hideCode: "Hide code" },
-    uz: { current: "Joriy Admin kodi", admin: "Yangi Admin kodi", reception: "Yangi Reception kodi", changeAdmin: "Admin kodini o'zgartirish", changeReception: "Reception kodini o'zgartirish", invalid: "Joriy Admin kodi noto'g'ri.", requiredAdmin: "Yangi Admin kodini kiriting.", requiredReception: "Yangi Reception kodini kiriting.", missingReception: "Reception hisobi topilmadi.", adminUpdated: "Admin kodi yangilandi.", receptionUpdated: "Reception kodi yangilandi.", showCode: "Kodni ko'rsatish", hideCode: "Kodni yashirish" },
-    ru: { current: "Текущий код Admin", admin: "Новый код Admin", reception: "Новый код Reception", changeAdmin: "Изменить код Admin", changeReception: "Изменить код Reception", invalid: "Текущий код Admin указан неверно.", requiredAdmin: "Введите новый код Admin.", requiredReception: "Введите новый код Reception.", missingReception: "Учётная запись Reception не найдена.", adminUpdated: "Код Admin обновлён.", receptionUpdated: "Код Reception обновлён.", showCode: "Показать код", hideCode: "Скрыть код" },
+    en: { current: "Current Admin code", admin: "New Admin code", reception: "New Reception code", changeAdmin: "Change Admin code", changeReception: "Change Reception code", invalid: "Current Admin code is incorrect.", requiredAdmin: "Enter a new Admin code.", requiredReception: "Enter a new Reception code.", missingReception: "Reception account was not found.", adminUpdated: "Admin code updated.", receptionUpdated: "Reception code updated.", showCode: "Show code", hideCode: "Hide code", saveFailed: "Could not save the access code. Check the connection and try again.", sessionOnly: "Firebase is not configured. The code changed for this session only and will reset when the page reloads." },
+    uz: { current: "Joriy Admin kodi", admin: "Yangi Admin kodi", reception: "Yangi Reception kodi", changeAdmin: "Admin kodini o'zgartirish", changeReception: "Reception kodini o'zgartirish", invalid: "Joriy Admin kodi noto'g'ri.", requiredAdmin: "Yangi Admin kodini kiriting.", requiredReception: "Yangi Reception kodini kiriting.", missingReception: "Reception hisobi topilmadi.", adminUpdated: "Admin kodi yangilandi.", receptionUpdated: "Reception kodi yangilandi.", showCode: "Kodni ko'rsatish", hideCode: "Kodni yashirish", saveFailed: "Kodni saqlab bo'lmadi. Ulanishni tekshirib, qayta urinib ko'ring.", sessionOnly: "Firebase sozlanmagan. Kod faqat shu seans uchun o'zgardi va sahifa yangilanganda tiklanadi." },
+    ru: { current: "Текущий код Admin", admin: "Новый код Admin", reception: "Новый код Reception", changeAdmin: "Изменить код Admin", changeReception: "Изменить код Reception", invalid: "Текущий код Admin указан неверно.", requiredAdmin: "Введите новый код Admin.", requiredReception: "Введите новый код Reception.", missingReception: "Учётная запись Reception не найдена.", adminUpdated: "Код Admin обновлён.", receptionUpdated: "Код Reception обновлён.", showCode: "Показать код", hideCode: "Скрыть код", saveFailed: "Не удалось сохранить код. Проверьте подключение и попробуйте снова.", sessionOnly: "Firebase не настроен. Код изменён только на время этого сеанса и сбросится после перезагрузки страницы." },
   }[lang] || {};
   const adminEmployee = state.employees.find(employee => employee.id === user?.id && employee.role === "ADMIN")
     || state.employees.find(employee => employee.username === user?.username && employee.role === "ADMIN");
-  const changeAdminCode = () => {
+  const changeAdminCode = async () => {
     if (!adminEmployee || adminEmployee.password !== pw.current) return pushToast(securityLabels.invalid);
     if (!pw.adminNext.trim()) return pushToast(securityLabels.requiredAdmin);
-    dispatch({ type: "UPSERT_EMPLOYEE", emp: { ...adminEmployee, password: pw.adminNext.trim() } });
-    dispatch({ type: "ADD_AUDIT", entry: { user: adminEmployee.username, action: "Changed Admin access code" } });
-    pushToast(securityLabels.adminUpdated);
-    setPw(p => ({ ...p, current: "", adminNext: "" }));
+    const updatedEmployee = { ...adminEmployee, password: pw.adminNext.trim() };
+    setSavingCode("admin");
+    try {
+      if (isFirebaseConfigured && db) await setDoc(doc(db, "employees", String(updatedEmployee.id)), updatedEmployee);
+      dispatch({ type: "UPSERT_EMPLOYEE", emp: updatedEmployee });
+      dispatch({ type: "ADD_AUDIT", entry: { user: adminEmployee.username, action: "Changed Admin access code" } });
+      pushToast(isFirebaseConfigured ? securityLabels.adminUpdated : securityLabels.sessionOnly);
+      setPw(p => ({ ...p, current: "", adminNext: "" }));
+    } catch (error) {
+      console.error("Failed to save Admin access code:", error);
+      pushToast(securityLabels.saveFailed);
+    } finally {
+      setSavingCode("");
+    }
   };
-  const changeReceptionCode = () => {
+  const changeReceptionCode = async () => {
     if (!adminEmployee || adminEmployee.password !== pw.current) return pushToast(securityLabels.invalid);
     if (!pw.receptionNext.trim()) return pushToast(securityLabels.requiredReception);
     const receptionEmployee = state.employees.find(employee => employee.role === "RECEPTION");
     if (!receptionEmployee) return pushToast(securityLabels.missingReception);
-    dispatch({ type: "UPSERT_EMPLOYEE", emp: { ...receptionEmployee, password: pw.receptionNext.trim() } });
-    dispatch({ type: "ADD_AUDIT", entry: { user: adminEmployee.username, action: "Changed Reception access code" } });
-    pushToast(securityLabels.receptionUpdated);
-    setPw(p => ({ ...p, current: "", receptionNext: "" }));
+    const updatedEmployee = { ...receptionEmployee, password: pw.receptionNext.trim() };
+    setSavingCode("reception");
+    try {
+      if (isFirebaseConfigured && db) await setDoc(doc(db, "employees", String(updatedEmployee.id)), updatedEmployee);
+      dispatch({ type: "UPSERT_EMPLOYEE", emp: updatedEmployee });
+      dispatch({ type: "ADD_AUDIT", entry: { user: adminEmployee.username, action: "Changed Reception access code" } });
+      pushToast(isFirebaseConfigured ? securityLabels.receptionUpdated : securityLabels.sessionOnly);
+      setPw(p => ({ ...p, current: "", receptionNext: "" }));
+    } catch (error) {
+      console.error("Failed to save Reception access code:", error);
+      pushToast(securityLabels.saveFailed);
+    } finally {
+      setSavingCode("");
+    }
   };
   const renderCodeInput = (key, label, autoComplete) => (
     <Field label={label}>
@@ -2743,9 +2764,9 @@ function SettingsAdmin({ pushToast }) {
         <div className="flex flex-col gap-4">
           {renderCodeInput("current", securityLabels.current, "current-password")}
           {renderCodeInput("adminNext", securityLabels.admin, "new-password")}
-          <Btn variant="ghost" onClick={changeAdminCode} disabled={!pw.current || !pw.adminNext}><Lock size={14} /> {securityLabels.changeAdmin}</Btn>
+          <Btn variant="ghost" onClick={changeAdminCode} disabled={!pw.current || !pw.adminNext || !!savingCode}><Lock size={14} /> {securityLabels.changeAdmin}</Btn>
           {renderCodeInput("receptionNext", securityLabels.reception, "new-password")}
-          <Btn variant="ghost" onClick={changeReceptionCode} disabled={!pw.current || !pw.receptionNext}><Lock size={14} /> {securityLabels.changeReception}</Btn>
+          <Btn variant="ghost" onClick={changeReceptionCode} disabled={!pw.current || !pw.receptionNext || !!savingCode}><Lock size={14} /> {securityLabels.changeReception}</Btn>
           <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--gray)" }}>In production, passwords must be hashed (e.g. bcrypt/argon2) and never stored or compared in plain text — this demo compares them directly for simplicity only.</p>
         </div>
       </div>
