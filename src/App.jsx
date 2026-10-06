@@ -808,7 +808,7 @@ function PublicHeader({ nav, go }) {
       <div className="max-w-7xl mx-auto px-5 md:px-8 h-20 flex items-center justify-between gap-4">
         <button onClick={() => go("home")} className="flex items-center gap-2 shrink-0">
           <Hotel size={22} color="var(--gold)" />
-          <span className="dh-serif text-lg tracking-wide" style={{ color: "var(--cream)" }}>DEMO HOTEL</span>
+          <span className="dh-serif text-lg tracking-wide" style={{ color: "var(--cream)" }}>ART AIR</span>
         </button>
         <nav className="hidden lg:flex items-center gap-8">
           {links.map(([key, page]) => (
