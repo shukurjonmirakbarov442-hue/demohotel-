@@ -2358,7 +2358,6 @@ function RoomPhotoSettings({ pushToast }) {
   const [roomId, setRoomId] = useState(state.rooms[0]?.id || "");
   const [deleteRoomId, setDeleteRoomId] = useState("");
   const [newRoom, setNewRoom] = useState({ number: "", typeId: ROOM_TYPES[0].id, price: ROOM_TYPES[0].price });
-  const [roomSort, setRoomSort] = useState("number-asc");
   const [editRoom, setEditRoom] = useState(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const room = state.rooms.find(item => item.id === roomId);
@@ -2368,13 +2367,9 @@ function RoomPhotoSettings({ pushToast }) {
     uz: { title: "Xona rasmlari", hint: "Xonani tanlang va kompyuteringizdan rasm yuklang. Rasm public xona kartalari va xona tafsilotlarida ko'rsatiladi.", room: "Xona", addRoom: "Xona qo'shish", removeRoom: "Xonani o'chirish", roomToRemove: "O'chiriladigan xonani tanlang", selectRoom: "Xonani raqami bo'yicha tanlang", updateRoom: "Xonani yangilash", saveChanges: "O'zgarishlarni saqlash", sort: "Xonalarni saralash", number: "Xona raqami", type: "Xona turi", price: "Bir kecha narxi", choose: "Rasm faylini tanlash", fileHint: "JPG, PNG yoki WEBP. Maksimal hajm: 5 MB.", addSuccess: "Xona qo'shildi.", removeSuccess: "Xona o'chirildi.", updateSuccess: "Xona yangilandi.", booked: "Bu xonani bandlovlari borligi sababli o'chirib bo'lmaydi.", numberRequired: "Xona raqamini kiriting.", duplicateNumber: "Bu xona raqami allaqachon mavjud.", invalidPrice: "Noldan katta narx kiriting.", confirmRemove: "Bu xona o'chirilsinmi?", cancel: "Bekor qilish", deleteFailed: "Xonani o'chirib bo'lmadi." },
     ru: { title: "Фотографии номеров", hint: "Выберите номер и загрузите фотографию с компьютера. Она будет показана в карточке и на странице номера.", room: "Номер", addRoom: "Добавить номер", removeRoom: "Удалить номер", roomToRemove: "Выберите номер для удаления", selectRoom: "Выберите номер комнаты", updateRoom: "Обновить номер", saveChanges: "Сохранить изменения", sort: "Сортировка номеров", number: "Номер комнаты", type: "Тип номера", price: "Цена за ночь", choose: "Выбрать файл изображения", fileHint: "JPG, PNG или WEBP. Максимальный размер: 5 МБ.", addSuccess: "Номер добавлен.", removeSuccess: "Номер удалён.", updateSuccess: "Номер обновлён.", booked: "Номер нельзя удалить, потому что у него есть бронирования.", numberRequired: "Введите номер комнаты.", duplicateNumber: "Этот номер комнаты уже существует.", invalidPrice: "Укажите цену больше нуля.", confirmRemove: "Удалить этот номер?", cancel: "Отмена", deleteFailed: "Не удалось удалить номер." },
   }[lang] || {};
-  const sortedRooms = [...state.rooms].sort((a, b) => {
-    const aNumber = String(a.number ?? "");
-    const bNumber = String(b.number ?? "");
-    if (roomSort === "number-desc") return bNumber.localeCompare(aNumber, undefined, { numeric: true });
-    if (roomSort === "type") return String(a.typeName ?? "").localeCompare(String(b.typeName ?? "")) || aNumber.localeCompare(bNumber, undefined, { numeric: true });
-    return aNumber.localeCompare(bNumber, undefined, { numeric: true });
-  });
+  const sortedRooms = [...state.rooms].sort((a, b) =>
+    String(a.number ?? "").localeCompare(String(b.number ?? ""), undefined, { numeric: true })
+  );
 
   useEffect(() => {
     setEditRoom(room ? { number: room.number, typeId: room.typeId, price: room.price ?? roomTypeFor(room).price } : null);
@@ -2481,20 +2476,11 @@ function RoomPhotoSettings({ pushToast }) {
       {!state.rooms.length ? <EmptyState text="Add a room before uploading room photos." /> : (
         <div className="grid md:grid-cols-[minmax(0,1fr)_220px] gap-5 items-start">
           <div className="flex flex-col gap-4">
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Field label={labels.room}>
-                <Select value={roomId} onChange={e => setRoomId(e.target.value)}>
-                  {sortedRooms.map(item => <option key={item.id} value={item.id}>#{item.number} · {item.typeName}</option>)}
-                </Select>
-              </Field>
-              <Field label={labels.sort}>
-                <Select value={roomSort} onChange={e => setRoomSort(e.target.value)}>
-                  <option value="number-asc">{lang === "uz" ? "Raqam: o'sish tartibida" : lang === "ru" ? "По номеру: по возрастанию" : "Room number: ascending"}</option>
-                  <option value="number-desc">{lang === "uz" ? "Raqam: kamayish tartibida" : lang === "ru" ? "По номеру: по убыванию" : "Room number: descending"}</option>
-                  <option value="type">{lang === "uz" ? "Xona turi bo'yicha" : lang === "ru" ? "По типу номера" : "Room type"}</option>
-                </Select>
-              </Field>
-            </div>
+            <Field label={labels.room}>
+              <Select value={roomId} onChange={e => setRoomId(e.target.value)}>
+                {sortedRooms.map(item => <option key={item.id} value={item.id}>#{item.number} · {item.typeName}</option>)}
+              </Select>
+            </Field>
             {room && editRoom && <>
               <div className="grid sm:grid-cols-3 gap-3">
                 <Field label={labels.number}><Input value={editRoom.number} onChange={e => setEditRoom(form => ({ ...form, number: e.target.value }))} /></Field>
