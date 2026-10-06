@@ -1779,11 +1779,23 @@ function RoomsAdmin({ readOnly, pushToast }) {
     pushToast("Room saved.");
     setModal(null);
   };
-  const del = () => {
-    dispatch({ type: "DELETE_ROOM", id: confirmDel.id });
-    dispatch({ type: "ADD_AUDIT", entry: { user: "admin", action: `Deleted room ${confirmDel.number}` } });
-    pushToast("Room deleted.");
-    setConfirmDel(null);
+  const del = async () => {
+    if (!confirmDel) return;
+    if (state.bookings.some(booking => booking.roomId === confirmDel.id)) {
+      pushToast(lang === "uz" ? "Bandlovlari bor xonani o'chirib bo'lmaydi." : lang === "ru" ? "Номер с бронированиями нельзя удалить." : "This room cannot be removed because it has bookings.");
+      setConfirmDel(null);
+      return;
+    }
+    try {
+      if (db) await deleteDoc(doc(db, "rooms", String(confirmDel.id)));
+      dispatch({ type: "DELETE_ROOM", id: confirmDel.id });
+      dispatch({ type: "ADD_AUDIT", entry: { user: "admin", action: `Deleted room ${confirmDel.number}` } });
+      pushToast("Room deleted.");
+      setConfirmDel(null);
+    } catch (error) {
+      console.error("Room deletion failed:", error);
+      pushToast("Room could not be deleted.");
+    }
   };
 
   return (
@@ -2344,23 +2356,48 @@ function RoomPhotoSettings({ pushToast }) {
   const { state, dispatch } = useData();
   const { lang } = useLang();
   const [roomId, setRoomId] = useState(state.rooms[0]?.id || "");
+  const [deleteRoomId, setDeleteRoomId] = useState("");
   const [newRoom, setNewRoom] = useState({ number: "", typeId: ROOM_TYPES[0].id, price: ROOM_TYPES[0].price });
+  const [roomSort, setRoomSort] = useState("number-asc");
+  const [editRoom, setEditRoom] = useState(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const room = state.rooms.find(item => item.id === roomId);
+  const deleteRoom = state.rooms.find(item => item.id === deleteRoomId);
   const labels = {
-    en: { title: "Room Photos", hint: "Choose a room and upload a photo from your computer. The image will be used on the public room cards and room detail page.", room: "Room", addRoom: "Add room", removeRoom: "Remove room", number: "Room number", type: "Room type", price: "Price per night", choose: "Choose image file", fileHint: "JPG, PNG or WEBP. Maximum size: 5 MB.", addSuccess: "Room added.", removeSuccess: "Room removed.", booked: "This room cannot be removed because it has bookings." },
-    uz: { title: "Xona rasmlari", hint: "Xonani tanlang va kompyuteringizdan rasm yuklang. Rasm public xona kartalari va xona tafsilotlarida ko'rsatiladi.", room: "Xona", addRoom: "Xona qo'shish", removeRoom: "Xonani o'chirish", number: "Xona raqami", type: "Xona turi", price: "Bir kecha narxi", choose: "Rasm faylini tanlash", fileHint: "JPG, PNG yoki WEBP. Maksimal hajm: 5 MB.", addSuccess: "Xona qo'shildi.", removeSuccess: "Xona o'chirildi.", booked: "Bu xonani bandlovlari borligi sababli o'chirib bo'lmaydi." },
-    ru: { title: "Фотографии номеров", hint: "Выберите номер и загрузите фотографию с компьютера. Она будет показана в карточке и на странице номера.", room: "Номер", addRoom: "Добавить номер", removeRoom: "Удалить номер", number: "Номер комнаты", type: "Тип номера", price: "Цена за ночь", choose: "Выбрать файл изображения", fileHint: "JPG, PNG или WEBP. Максимальный размер: 5 МБ.", addSuccess: "Номер добавлен.", removeSuccess: "Номер удалён.", booked: "Номер нельзя удалить, потому что у него есть бронирования." },
+    en: { title: "Room Photos", hint: "Choose a room and upload a photo from your computer. The image will be used on the public room cards and room detail page.", room: "Room", addRoom: "Add room", removeRoom: "Remove room", roomToRemove: "Choose room to remove", selectRoom: "Select a room by number", updateRoom: "Update room", saveChanges: "Save changes", sort: "Sort rooms", number: "Room number", type: "Room type", price: "Price per night", choose: "Choose image file", fileHint: "JPG, PNG or WEBP. Maximum size: 5 MB.", addSuccess: "Room added.", removeSuccess: "Room removed.", updateSuccess: "Room updated.", booked: "This room cannot be removed because it has bookings.", numberRequired: "Enter a room number.", duplicateNumber: "That room number already exists.", invalidPrice: "Enter a price greater than zero.", confirmRemove: "Remove this room?", cancel: "Cancel", deleteFailed: "Room could not be deleted." },
+    uz: { title: "Xona rasmlari", hint: "Xonani tanlang va kompyuteringizdan rasm yuklang. Rasm public xona kartalari va xona tafsilotlarida ko'rsatiladi.", room: "Xona", addRoom: "Xona qo'shish", removeRoom: "Xonani o'chirish", roomToRemove: "O'chiriladigan xonani tanlang", selectRoom: "Xonani raqami bo'yicha tanlang", updateRoom: "Xonani yangilash", saveChanges: "O'zgarishlarni saqlash", sort: "Xonalarni saralash", number: "Xona raqami", type: "Xona turi", price: "Bir kecha narxi", choose: "Rasm faylini tanlash", fileHint: "JPG, PNG yoki WEBP. Maksimal hajm: 5 MB.", addSuccess: "Xona qo'shildi.", removeSuccess: "Xona o'chirildi.", updateSuccess: "Xona yangilandi.", booked: "Bu xonani bandlovlari borligi sababli o'chirib bo'lmaydi.", numberRequired: "Xona raqamini kiriting.", duplicateNumber: "Bu xona raqami allaqachon mavjud.", invalidPrice: "Noldan katta narx kiriting.", confirmRemove: "Bu xona o'chirilsinmi?", cancel: "Bekor qilish", deleteFailed: "Xonani o'chirib bo'lmadi." },
+    ru: { title: "Фотографии номеров", hint: "Выберите номер и загрузите фотографию с компьютера. Она будет показана в карточке и на странице номера.", room: "Номер", addRoom: "Добавить номер", removeRoom: "Удалить номер", roomToRemove: "Выберите номер для удаления", selectRoom: "Выберите номер комнаты", updateRoom: "Обновить номер", saveChanges: "Сохранить изменения", sort: "Сортировка номеров", number: "Номер комнаты", type: "Тип номера", price: "Цена за ночь", choose: "Выбрать файл изображения", fileHint: "JPG, PNG или WEBP. Максимальный размер: 5 МБ.", addSuccess: "Номер добавлен.", removeSuccess: "Номер удалён.", updateSuccess: "Номер обновлён.", booked: "Номер нельзя удалить, потому что у него есть бронирования.", numberRequired: "Введите номер комнаты.", duplicateNumber: "Этот номер комнаты уже существует.", invalidPrice: "Укажите цену больше нуля.", confirmRemove: "Удалить этот номер?", cancel: "Отмена", deleteFailed: "Не удалось удалить номер." },
   }[lang] || {};
+  const sortedRooms = [...state.rooms].sort((a, b) => {
+    const aNumber = String(a.number ?? "");
+    const bNumber = String(b.number ?? "");
+    if (roomSort === "number-desc") return bNumber.localeCompare(aNumber, undefined, { numeric: true });
+    if (roomSort === "type") return String(a.typeName ?? "").localeCompare(String(b.typeName ?? "")) || aNumber.localeCompare(bNumber, undefined, { numeric: true });
+    return aNumber.localeCompare(bNumber, undefined, { numeric: true });
+  });
+
+  useEffect(() => {
+    setEditRoom(room ? { number: room.number, typeId: room.typeId, price: room.price ?? roomTypeFor(room).price } : null);
+  }, [roomId]);
 
   const addRoom = () => {
-    const type = ROOM_TYPES.find(item => item.id === newRoom.typeId) || ROOM_TYPES[0];
     if (!newRoom.number.trim()) {
-      pushToast(labels.number);
+      pushToast(labels.numberRequired);
       return;
     }
+    if (state.rooms.some(item => item.number.trim().toLowerCase() === newRoom.number.trim().toLowerCase())) {
+      pushToast(labels.duplicateNumber);
+      return;
+    }
+    const price = Number(newRoom.price);
+    if (!Number.isFinite(price) || price <= 0) {
+      pushToast(labels.invalidPrice);
+      return;
+    }
+    const type = ROOM_TYPES.find(item => item.id === newRoom.typeId) || ROOM_TYPES[0];
     const roomToAdd = {
       id: uid("room_"), number: newRoom.number.trim(), typeId: type.id, typeName: type.name,
-      price: Number(newRoom.price) || type.price, size: type.size, beds: type.beds,
+      price, size: type.size, beds: type.beds,
       maxGuests: type.maxGuests, amenities: type.amenities, img: type.img, desc: type.desc, status: "AVAILABLE",
     };
     dispatch({ type: "UPSERT_ROOM", room: roomToAdd });
@@ -2370,17 +2407,49 @@ function RoomPhotoSettings({ pushToast }) {
     pushToast(labels.addSuccess);
   };
 
-  const removeRoom = () => {
-    if (!room) return;
-    if (state.bookings.some(booking => booking.roomId === room.id)) {
-      pushToast(labels.booked);
+  const saveRoomDetails = () => {
+    if (!room || !editRoom) return;
+    if (!editRoom.number.trim()) {
+      pushToast(labels.numberRequired);
       return;
     }
-    dispatch({ type: "DELETE_ROOM", id: room.id });
-    dispatch({ type: "ADD_AUDIT", entry: { user: "admin", action: `Deleted room ${room.number}` } });
-    const nextRoom = state.rooms.find(item => item.id !== room.id);
-    setRoomId(nextRoom?.id || "");
-    pushToast(labels.removeSuccess);
+    if (state.rooms.some(item => item.id !== room.id && item.number.trim().toLowerCase() === editRoom.number.trim().toLowerCase())) {
+      pushToast(labels.duplicateNumber);
+      return;
+    }
+    const price = Number(editRoom.price);
+    if (!Number.isFinite(price) || price <= 0) {
+      pushToast(labels.invalidPrice);
+      return;
+    }
+    const type = ROOM_TYPES.find(item => item.id === editRoom.typeId) || ROOM_TYPES[0];
+    dispatch({ type: "UPSERT_ROOM", room: {
+      ...room, number: editRoom.number.trim(), typeId: type.id, typeName: type.name, price,
+      size: type.size, beds: type.beds, maxGuests: type.maxGuests, amenities: type.amenities, desc: type.desc,
+    } });
+    dispatch({ type: "ADD_AUDIT", entry: { user: "admin", action: `Updated room ${editRoom.number.trim()}` } });
+    pushToast(labels.updateSuccess);
+  };
+
+  const removeRoom = async () => {
+    if (!deleteRoom) return;
+    if (state.bookings.some(booking => booking.roomId === deleteRoom.id)) {
+      pushToast(labels.booked);
+      setConfirmRemove(false);
+      return;
+    }
+    try {
+      if (db) await deleteDoc(doc(db, "rooms", String(deleteRoom.id)));
+      dispatch({ type: "DELETE_ROOM", id: deleteRoom.id });
+      dispatch({ type: "ADD_AUDIT", entry: { user: "admin", action: `Deleted room ${deleteRoom.number}` } });
+      if (roomId === deleteRoom.id) setRoomId(state.rooms.find(item => item.id !== deleteRoom.id)?.id || "");
+      setDeleteRoomId("");
+      setConfirmRemove(false);
+      pushToast(labels.removeSuccess);
+    } catch (error) {
+      console.error("Room deletion failed:", error);
+      pushToast(labels.deleteFailed);
+    }
   };
 
   const updatePhoto = (event) => {
@@ -2412,19 +2481,35 @@ function RoomPhotoSettings({ pushToast }) {
       {!state.rooms.length ? <EmptyState text="Add a room before uploading room photos." /> : (
         <div className="grid md:grid-cols-[minmax(0,1fr)_220px] gap-5 items-start">
           <div className="flex flex-col gap-4">
-            <Field label={labels.room}>
-              <Select value={roomId} onChange={e => setRoomId(e.target.value)}>
-                {state.rooms.map(item => <option key={item.id} value={item.id}>#{item.number} · {item.typeName}</option>)}
-              </Select>
-            </Field>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label={labels.room}>
+                <Select value={roomId} onChange={e => setRoomId(e.target.value)}>
+                  {sortedRooms.map(item => <option key={item.id} value={item.id}>#{item.number} · {item.typeName}</option>)}
+                </Select>
+              </Field>
+              <Field label={labels.sort}>
+                <Select value={roomSort} onChange={e => setRoomSort(e.target.value)}>
+                  <option value="number-asc">{lang === "uz" ? "Raqam: o'sish tartibida" : lang === "ru" ? "По номеру: по возрастанию" : "Room number: ascending"}</option>
+                  <option value="number-desc">{lang === "uz" ? "Raqam: kamayish tartibida" : lang === "ru" ? "По номеру: по убыванию" : "Room number: descending"}</option>
+                  <option value="type">{lang === "uz" ? "Xona turi bo'yicha" : lang === "ru" ? "По типу номера" : "Room type"}</option>
+                </Select>
+              </Field>
+            </div>
+            {room && editRoom && <>
+              <div className="grid sm:grid-cols-3 gap-3">
+                <Field label={labels.number}><Input value={editRoom.number} onChange={e => setEditRoom(form => ({ ...form, number: e.target.value }))} /></Field>
+                <Field label={labels.type}><Select value={editRoom.typeId} onChange={e => { const type = ROOM_TYPES.find(item => item.id === e.target.value) || ROOM_TYPES[0]; setEditRoom(form => ({ ...form, typeId: type.id, price: type.price })); }}>{ROOM_TYPES.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</Select></Field>
+                <Field label={labels.price}><Input type="number" min={0} value={editRoom.price} onChange={e => setEditRoom(form => ({ ...form, price: e.target.value }))} /></Field>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Btn size="sm" onClick={saveRoomDetails}>{labels.saveChanges}</Btn>
+              </div>
+            </>}
             <label className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium cursor-pointer" style={{ background: "var(--gold)", color: "#fff" }}>
               <input type="file" accept="image/*" onChange={updatePhoto} className="hidden" />
               <Plus size={16} /> {labels.choose}
             </label>
             <p className="text-xs" style={{ color: "var(--gray)" }}>{labels.fileHint}</p>
-            <div className="flex gap-2 flex-wrap">
-              <Btn variant="ghost" size="sm" onClick={removeRoom}><Trash2 size={14} /> {labels.removeRoom}</Btn>
-            </div>
           </div>
           {room && (
             <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--line)" }}>
@@ -2443,6 +2528,27 @@ function RoomPhotoSettings({ pushToast }) {
         </div>
         <Btn className="mt-4" onClick={addRoom}><Plus size={15} /> {labels.addRoom}</Btn>
       </div>
+      <div className="mt-6 pt-5" style={{ borderTop: "1px solid var(--line)" }}>
+        <div className="text-sm mb-3" style={{ color: "var(--cream)" }}>{labels.roomToRemove}</div>
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="w-full">
+            <Field label={labels.number}>
+              <Select value={deleteRoomId} onChange={e => setDeleteRoomId(e.target.value)}>
+                <option value="">{labels.selectRoom}</option>
+                {sortedRooms.map(item => <option key={item.id} value={item.id}>#{item.number} · {item.typeName}</option>)}
+              </Select>
+            </Field>
+          </div>
+          <Btn variant="ghost" className="shrink-0" disabled={!deleteRoomId} onClick={() => setConfirmRemove(true)}><Trash2 size={14} /> {labels.removeRoom}</Btn>
+        </div>
+      </div>
+      <Modal open={confirmRemove} onClose={() => setConfirmRemove(false)} title={labels.removeRoom}>
+        <p className="text-sm mb-6" style={{ color: "var(--gray)" }}>{labels.confirmRemove} {deleteRoom ? `#${deleteRoom.number}` : ""}</p>
+        <div className="flex gap-3 justify-end">
+          <Btn variant="ghost" onClick={() => setConfirmRemove(false)}>{labels.cancel}</Btn>
+          <Btn variant="danger" onClick={removeRoom}><Trash2 size={14} /> {labels.removeRoom}</Btn>
+        </div>
+      </Modal>
     </div>
   );
 }
