@@ -2478,13 +2478,13 @@ function RoomPhotoSettings({ pushToast }) {
           <div className="flex flex-col gap-4">
             <Field label={labels.room}>
               <Select value={roomId} onChange={e => setRoomId(e.target.value)}>
-                {sortedRooms.map(item => <option key={item.id} value={item.id}>#{item.number} · {item.typeName}</option>)}
+                {sortedRooms.map(item => <option key={item.id} value={item.id}>#{item.number} · {roomLabel(roomTypeFor(item), lang)[0]}</option>)}
               </Select>
             </Field>
             {room && editRoom && <>
               <div className="grid sm:grid-cols-3 gap-3">
                 <Field label={labels.number}><Input value={editRoom.number} onChange={e => setEditRoom(form => ({ ...form, number: e.target.value }))} /></Field>
-                <Field label={labels.type}><Select value={editRoom.typeId} onChange={e => { const type = ROOM_TYPES.find(item => item.id === e.target.value) || ROOM_TYPES[0]; setEditRoom(form => ({ ...form, typeId: type.id, price: type.price })); }}>{ROOM_TYPES.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</Select></Field>
+                <Field label={labels.type}><Select value={editRoom.typeId} onChange={e => { const type = ROOM_TYPES.find(item => item.id === e.target.value) || ROOM_TYPES[0]; setEditRoom(form => ({ ...form, typeId: type.id, price: type.price })); }}>{ROOM_TYPES.map(type => <option key={type.id} value={type.id}>{roomLabel(type, lang)[0]}</option>)}</Select></Field>
                 <Field label={labels.price}><Input type="number" min={0} value={editRoom.price} onChange={e => setEditRoom(form => ({ ...form, price: e.target.value }))} /></Field>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -2509,7 +2509,7 @@ function RoomPhotoSettings({ pushToast }) {
         <div className="text-sm mb-3" style={{ color: "var(--cream)" }}>{labels.addRoom}</div>
         <div className="grid md:grid-cols-3 gap-3">
           <Field label={labels.number}><Input value={newRoom.number} onChange={e => setNewRoom(form => ({ ...form, number: e.target.value }))} placeholder="701" /></Field>
-          <Field label={labels.type}><Select value={newRoom.typeId} onChange={e => { const type = ROOM_TYPES.find(item => item.id === e.target.value) || ROOM_TYPES[0]; setNewRoom(form => ({ ...form, typeId: type.id, price: type.price })); }}>{ROOM_TYPES.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</Select></Field>
+          <Field label={labels.type}><Select value={newRoom.typeId} onChange={e => { const type = ROOM_TYPES.find(item => item.id === e.target.value) || ROOM_TYPES[0]; setNewRoom(form => ({ ...form, typeId: type.id, price: type.price })); }}>{ROOM_TYPES.map(type => <option key={type.id} value={type.id}>{roomLabel(type, lang)[0]}</option>)}</Select></Field>
           <Field label={labels.price}><Input type="number" min={0} value={newRoom.price} onChange={e => setNewRoom(form => ({ ...form, price: e.target.value }))} /></Field>
         </div>
         <Btn className="mt-4" onClick={addRoom}><Plus size={15} /> {labels.addRoom}</Btn>
@@ -2521,7 +2521,7 @@ function RoomPhotoSettings({ pushToast }) {
             <Field label={labels.number}>
               <Select value={deleteRoomId} onChange={e => setDeleteRoomId(e.target.value)}>
                 <option value="">{labels.selectRoom}</option>
-                {sortedRooms.map(item => <option key={item.id} value={item.id}>#{item.number} · {item.typeName}</option>)}
+                {sortedRooms.map(item => <option key={item.id} value={item.id}>#{item.number} · {roomLabel(roomTypeFor(item), lang)[0]}</option>)}
               </Select>
             </Field>
           </div>
