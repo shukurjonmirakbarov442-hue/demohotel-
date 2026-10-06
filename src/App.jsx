@@ -4,7 +4,7 @@ import {
   ShieldCheck, LogOut, Menu, X, Search, Plus, Pencil, Trash2, Check, ChevronRight, ChevronLeft,
   MapPin, Phone, Mail, Share2, Star, Wifi, Wind, Tv, Wine, Bath, Coffee,
   Car, Sun, ConciergeBell, ClipboardList, Bell, ClipboardCheck, DoorOpen, DoorClosed, AlertTriangle,
-  FileText, Download, Filter, Eye, UserCog, Building2, Lock, User, ArrowRight, Loader2
+  FileText, Download, Filter, Eye, EyeOff, UserCog, Building2, Lock, User, ArrowRight, Loader2
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
@@ -2612,10 +2612,11 @@ function SettingsAdmin({ pushToast }) {
   const { user } = useAuth();
   const [form, setForm] = useState(state.settings);
   const [pw, setPw] = useState({ current: "", adminNext: "", receptionNext: "" });
+  const [showCodes, setShowCodes] = useState({ current: false, adminNext: false, receptionNext: false });
   const securityLabels = {
-    en: { current: "Current Admin code", admin: "New Admin code", reception: "New Reception code", changeAdmin: "Change Admin code", changeReception: "Change Reception code", invalid: "Current Admin code is incorrect.", requiredAdmin: "Enter a new Admin code.", requiredReception: "Enter a new Reception code.", missingReception: "Reception account was not found.", adminUpdated: "Admin code updated.", receptionUpdated: "Reception code updated." },
-    uz: { current: "Joriy Admin kodi", admin: "Yangi Admin kodi", reception: "Yangi Reception kodi", changeAdmin: "Admin kodini o'zgartirish", changeReception: "Reception kodini o'zgartirish", invalid: "Joriy Admin kodi noto'g'ri.", requiredAdmin: "Yangi Admin kodini kiriting.", requiredReception: "Yangi Reception kodini kiriting.", missingReception: "Reception hisobi topilmadi.", adminUpdated: "Admin kodi yangilandi.", receptionUpdated: "Reception kodi yangilandi." },
-    ru: { current: "Текущий код Admin", admin: "Новый код Admin", reception: "Новый код Reception", changeAdmin: "Изменить код Admin", changeReception: "Изменить код Reception", invalid: "Текущий код Admin указан неверно.", requiredAdmin: "Введите новый код Admin.", requiredReception: "Введите новый код Reception.", missingReception: "Учётная запись Reception не найдена.", adminUpdated: "Код Admin обновлён.", receptionUpdated: "Код Reception обновлён." },
+    en: { current: "Current Admin code", admin: "New Admin code", reception: "New Reception code", changeAdmin: "Change Admin code", changeReception: "Change Reception code", invalid: "Current Admin code is incorrect.", requiredAdmin: "Enter a new Admin code.", requiredReception: "Enter a new Reception code.", missingReception: "Reception account was not found.", adminUpdated: "Admin code updated.", receptionUpdated: "Reception code updated.", showCode: "Show code", hideCode: "Hide code" },
+    uz: { current: "Joriy Admin kodi", admin: "Yangi Admin kodi", reception: "Yangi Reception kodi", changeAdmin: "Admin kodini o'zgartirish", changeReception: "Reception kodini o'zgartirish", invalid: "Joriy Admin kodi noto'g'ri.", requiredAdmin: "Yangi Admin kodini kiriting.", requiredReception: "Yangi Reception kodini kiriting.", missingReception: "Reception hisobi topilmadi.", adminUpdated: "Admin kodi yangilandi.", receptionUpdated: "Reception kodi yangilandi.", showCode: "Kodni ko'rsatish", hideCode: "Kodni yashirish" },
+    ru: { current: "Текущий код Admin", admin: "Новый код Admin", reception: "Новый код Reception", changeAdmin: "Изменить код Admin", changeReception: "Изменить код Reception", invalid: "Текущий код Admin указан неверно.", requiredAdmin: "Введите новый код Admin.", requiredReception: "Введите новый код Reception.", missingReception: "Учётная запись Reception не найдена.", adminUpdated: "Код Admin обновлён.", receptionUpdated: "Код Reception обновлён.", showCode: "Показать код", hideCode: "Скрыть код" },
   }[lang] || {};
   const adminEmployee = state.employees.find(employee => employee.id === user?.id && employee.role === "ADMIN")
     || state.employees.find(employee => employee.username === user?.username && employee.role === "ADMIN");
@@ -2625,7 +2626,7 @@ function SettingsAdmin({ pushToast }) {
     dispatch({ type: "UPSERT_EMPLOYEE", emp: { ...adminEmployee, password: pw.adminNext.trim() } });
     dispatch({ type: "ADD_AUDIT", entry: { user: adminEmployee.username, action: "Changed Admin access code" } });
     pushToast(securityLabels.adminUpdated);
-    setPw({ current: "", adminNext: "", receptionNext: "" });
+    setPw(p => ({ ...p, current: "", adminNext: "" }));
   };
   const changeReceptionCode = () => {
     if (!adminEmployee || adminEmployee.password !== pw.current) return pushToast(securityLabels.invalid);
@@ -2635,8 +2636,30 @@ function SettingsAdmin({ pushToast }) {
     dispatch({ type: "UPSERT_EMPLOYEE", emp: { ...receptionEmployee, password: pw.receptionNext.trim() } });
     dispatch({ type: "ADD_AUDIT", entry: { user: adminEmployee.username, action: "Changed Reception access code" } });
     pushToast(securityLabels.receptionUpdated);
-    setPw({ current: "", adminNext: "", receptionNext: "" });
+    setPw(p => ({ ...p, current: "", receptionNext: "" }));
   };
+  const renderCodeInput = (key, label, autoComplete) => (
+    <Field label={label}>
+      <div className="relative">
+        <Input
+          type={showCodes[key] ? "text" : "password"}
+          autoComplete={autoComplete}
+          value={pw[key]}
+          onChange={e => setPw(p => ({ ...p, [key]: e.target.value }))}
+          className="pr-11"
+        />
+        <button
+          type="button"
+          onClick={() => setShowCodes(visible => ({ ...visible, [key]: !visible[key] }))}
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
+          title={showCodes[key] ? securityLabels.hideCode : securityLabels.showCode}
+          aria-label={showCodes[key] ? securityLabels.hideCode : securityLabels.showCode}
+        >
+          {showCodes[key] ? <EyeOff size={16} color="var(--gray)" /> : <Eye size={16} color="var(--gray)" />}
+        </button>
+      </div>
+    </Field>
+  );
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   return (
     <div className="grid lg:grid-cols-2 gap-6">
@@ -2718,10 +2741,10 @@ function SettingsAdmin({ pushToast }) {
       <div className="rounded-2xl p-6 h-fit" style={{ background: "var(--charcoal2)", border: "1px solid var(--line)" }}>
         <div className="dh-serif text-lg mb-5" style={{ color: "var(--cream)" }}>{t("security")}</div>
         <div className="flex flex-col gap-4">
-          <Field label={securityLabels.current}><Input type="password" autoComplete="current-password" value={pw.current} onChange={e => setPw(p => ({ ...p, current: e.target.value }))} /></Field>
-          <Field label={securityLabels.admin}><Input type="password" autoComplete="new-password" value={pw.adminNext} onChange={e => setPw(p => ({ ...p, adminNext: e.target.value }))} /></Field>
+          {renderCodeInput("current", securityLabels.current, "current-password")}
+          {renderCodeInput("adminNext", securityLabels.admin, "new-password")}
           <Btn variant="ghost" onClick={changeAdminCode} disabled={!pw.current || !pw.adminNext}><Lock size={14} /> {securityLabels.changeAdmin}</Btn>
-          <Field label={securityLabels.reception}><Input type="password" autoComplete="new-password" value={pw.receptionNext} onChange={e => setPw(p => ({ ...p, receptionNext: e.target.value }))} /></Field>
+          {renderCodeInput("receptionNext", securityLabels.reception, "new-password")}
           <Btn variant="ghost" onClick={changeReceptionCode} disabled={!pw.current || !pw.receptionNext}><Lock size={14} /> {securityLabels.changeReception}</Btn>
           <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--gray)" }}>In production, passwords must be hashed (e.g. bcrypt/argon2) and never stored or compared in plain text — this demo compares them directly for simplicity only.</p>
         </div>
