@@ -10,7 +10,7 @@ import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip as RTooltip, Legend,
 } from "recharts";
-import { collection, doc, getDocs, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { db, isFirebaseConfigured, storage } from "./firebase";
 
@@ -173,9 +173,9 @@ const EXTRA_STRINGS = {
   ru: { all_rooms: "Все номера", available: "доступно", fully_booked: "Все номера заняты", size: "Площадь", beds: "Кровати", max_guests: "Максимум гостей", amenities: "Удобства", back_to_rooms: "Назад к номерам", book_now_short: "Забронировать", room_number: "Номер", interface_language: "Язык интерфейса", hotel_information: "Информация об отеле", hotel_name: "Название отеля", address: "Адрес", check_in_time: "Время заезда", check_out_time: "Время выезда", base_currency: "Основная валюта (для Admin и ресепшена)", save_settings: "Сохранить настройки", homepage_hero: "Главный слайдер сайта", homepage_hero_hint: "Эти изображения сменяются на главном экране сайта. Добавьте один или несколько URL изображений.", gallery_photos: "Фотографии галереи", gallery_hint: "Показываются в галерее на главной странице и на странице Галерея.", security: "Безопасность", current_password: "Текущий пароль", new_password: "Новый пароль", change_password: "Изменить пароль", add: "Добавить", no_images: "Изображений пока нет — добавьте URL выше.", images_url_note: "В этой демо-версии изображения добавляются по URL.", about_us: "О НАС", our_story: "Наша история", contact_us: "Свяжитесь с нами", contact_copy: "Есть вопросы о поездке? Напишите нам, и мы скоро ответим.", send_message: "Отправить сообщение", name: "Имя", message: "Сообщение", gallery: "Галерея", guest_website_languages: "Сайт для гостей — Языки и валюты", choose_guest_options: "Выберите варианты, которые посетители смогут менять в шапке сайта.", languages: "Языки", currencies: "Валюты", save_choices: "Сохранить выбор", exchange_rates: "Курсы UZS" },
 };
 const PANEL_STRINGS = {
-  en: { contact_messages: "Contact messages", no_contact_messages: "No contact messages yet.", new_message: "New", read_message: "Read", mark_message_read: "Mark as read", sent_at: "Received", feedback_title: "Feedback & suggestions", feedback_intro: "Share a suggestion or tell us about an issue. Our team will follow up.", feedback_type: "What would you like to share?", suggestion: "Suggestion", complaint: "Complaint", other: "Other", feedback_success: "Thank you. Your feedback has been sent.", feedback_error: "Enter your name, a valid email, phone number, and a message.", hotel_phone: "Call the hotel", map_latitude: "Map latitude", map_longitude: "Map longitude", open_map: "Open in Google Maps", panel_currency: "Display currency" },
-  uz: { contact_messages: "Murojaatlar", no_contact_messages: "Hali murojaatlar yo'q.", new_message: "Yangi", read_message: "O'qilgan", mark_message_read: "O'qilgan deb belgilash", sent_at: "Yuborilgan vaqt", feedback_title: "Taklif va e'tirozlar", feedback_intro: "Taklifingizni yoki muammoni bizga yozib qoldiring. Jamoamiz siz bilan bog'lanadi.", feedback_type: "Murojaat turi", suggestion: "Taklif", complaint: "E'tiroz", other: "Boshqa", feedback_success: "Rahmat. Murojaatingiz yuborildi.", feedback_error: "Ism, to'g'ri email, telefon raqami va xabarni kiriting.", hotel_phone: "Mehmonxonaga qo'ng'iroq qilish", map_latitude: "Xarita kengligi (latitude)", map_longitude: "Xarita uzunligi (longitude)", open_map: "Google Maps’da ochish", panel_currency: "Ko‘rsatish valyutasi" },
-  ru: { contact_messages: "Обращения", no_contact_messages: "Обращений пока нет.", new_message: "Новое", read_message: "Прочитано", mark_message_read: "Отметить прочитанным", sent_at: "Получено", feedback_title: "Предложения и жалобы", feedback_intro: "Поделитесь предложением или сообщите о проблеме. Наша команда свяжется с вами.", feedback_type: "Тип обращения", suggestion: "Предложение", complaint: "Жалоба", other: "Другое", feedback_success: "Спасибо. Ваше обращение отправлено.", feedback_error: "Укажите имя, корректный email, номер телефона и сообщение.", hotel_phone: "Позвонить в отель", map_latitude: "Широта для карты", map_longitude: "Долгота для карты", open_map: "Открыть в Google Maps", panel_currency: "Валюта отображения" },
+  en: { contact_messages: "Contact messages", no_contact_messages: "No contact messages yet.", new_message: "New", read_message: "Read", mark_message_read: "Mark as read", sent_at: "Received", delete_action: "Delete", confirm_delete_contact_message: "Delete contact message?", contact_message_delete_warning: "This message will be permanently deleted. This cannot be undone.", contact_message_deleted: "Contact message deleted.", contact_message_delete_failed: "Could not delete the contact message. Please try again.", feedback_title: "Feedback & suggestions", feedback_intro: "Share a suggestion or tell us about an issue. Our team will follow up.", feedback_type: "What would you like to share?", suggestion: "Suggestion", complaint: "Complaint", other: "Other", feedback_success: "Thank you. Your feedback has been sent.", feedback_error: "Enter your name, a valid email, phone number, and a message.", hotel_phone: "Call the hotel", map_latitude: "Map latitude", map_longitude: "Map longitude", open_map: "Open in Google Maps", panel_currency: "Display currency" },
+  uz: { contact_messages: "Murojaatlar", no_contact_messages: "Hali murojaatlar yo'q.", new_message: "Yangi", read_message: "O'qilgan", mark_message_read: "O'qilgan deb belgilash", sent_at: "Yuborilgan vaqt", delete_action: "O'chirish", confirm_delete_contact_message: "Murojaat o'chirilsinmi?", contact_message_delete_warning: "Bu murojaat butunlay o'chiriladi. Bu amalni bekor qilib bo'lmaydi.", contact_message_deleted: "Murojaat o'chirildi.", contact_message_delete_failed: "Murojaatni o'chirib bo'lmadi. Qayta urinib ko'ring.", feedback_title: "Taklif va e'tirozlar", feedback_intro: "Taklifingizni yoki muammoni bizga yozib qoldiring. Jamoamiz siz bilan bog'lanadi.", feedback_type: "Murojaat turi", suggestion: "Taklif", complaint: "E'tiroz", other: "Boshqa", feedback_success: "Rahmat. Murojaatingiz yuborildi.", feedback_error: "Ism, to'g'ri email, telefon raqami va xabarni kiriting.", hotel_phone: "Mehmonxonaga qo'ng'iroq qilish", map_latitude: "Xarita kengligi (latitude)", map_longitude: "Xarita uzunligi (longitude)", open_map: "Google Maps’da ochish", panel_currency: "Ko‘rsatish valyutasi" },
+  ru: { contact_messages: "Обращения", no_contact_messages: "Обращений пока нет.", new_message: "Новое", read_message: "Прочитано", mark_message_read: "Отметить прочитанным", sent_at: "Получено", delete_action: "Удалить", confirm_delete_contact_message: "Удалить обращение?", contact_message_delete_warning: "Обращение будет удалено без возможности восстановления.", contact_message_deleted: "Обращение удалено.", contact_message_delete_failed: "Не удалось удалить обращение. Попробуйте ещё раз.", feedback_title: "Предложения и жалобы", feedback_intro: "Поделитесь предложением или сообщите о проблеме. Наша команда свяжется с вами.", feedback_type: "Тип обращения", suggestion: "Предложение", complaint: "Жалоба", other: "Другое", feedback_success: "Спасибо. Ваше обращение отправлено.", feedback_error: "Укажите имя, корректный email, номер телефона и сообщение.", hotel_phone: "Позвонить в отель", map_latitude: "Широта для карты", map_longitude: "Долгота для карты", open_map: "Открыть в Google Maps", panel_currency: "Валюта отображения" },
 };
 const PANEL_COPY = {
   en: {},
@@ -548,6 +548,7 @@ function dataReducer(state, action) {
       return { ...state, notifications: [{ id: uid("ntf_"), time: new Date().toLocaleTimeString(), read: false, ...action.notif }, ...state.notifications].slice(0, 50) };
     case "ADD_CONTACT_MESSAGE": return { ...state, contactMessages: [action.message, ...state.contactMessages] };
     case "UPDATE_CONTACT_MESSAGE": return { ...state, contactMessages: state.contactMessages.map(message => message.id === action.id ? { ...message, ...action.patch } : message) };
+    case "DELETE_CONTACT_MESSAGE": return { ...state, contactMessages: state.contactMessages.filter(message => message.id !== action.id) };
     case "MARK_NOTIFS_READ":
       return { ...state, notifications: state.notifications.map(n => ({ ...n, read: true })) };
     case "SET_ROOMS": return { ...state, rooms: action.rooms };
@@ -581,6 +582,10 @@ function dataReducer(state, action) {
 function DataProvider({ children }) {
   const [state, dispatch] = useReducer(dataReducer, null, seedAll);
   const [hydrated, setHydrated] = useState(!isFirebaseConfigured);
+  const deleteContactMessage = async (id) => {
+    if (db) await deleteDoc(doc(db, "contactMessages", String(id)));
+    dispatch({ type: "DELETE_CONTACT_MESSAGE", id });
+  };
 
   useEffect(() => {
     if (!db) return;
@@ -617,7 +622,7 @@ function DataProvider({ children }) {
     saveStateToFirestore(state).catch(error => console.error("Firebase data save failed:", error));
   }, [state, hydrated]);
 
-  return <DataCtx.Provider value={{ state, dispatch }}>{children}</DataCtx.Provider>;
+  return <DataCtx.Provider value={{ state, dispatch, deleteContactMessage }}>{children}</DataCtx.Provider>;
 }
 
 const FIRESTORE_COLLECTIONS = ["rooms", "guests", "employees", "bookings", "housekeeping", "services", "requests", "contactMessages", "auditLog", "notifications"];
@@ -1710,11 +1715,22 @@ function DashboardHome({ role }) {
   );
 }
 
-function ContactMessagesPage() {
-  const { state, dispatch } = useData();
+function ContactMessagesPage({ pushToast }) {
+  const { state, dispatch, deleteContactMessage } = useData();
   const { lang, t } = useLang();
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const messages = [...(state.contactMessages || [])].sort((a, b) => new Date(b.created) - new Date(a.created));
   const dateLocale = { en: "en-US", uz: "uz-UZ", ru: "ru-RU" }[lang] || "en-US";
+  const removeMessage = async () => {
+    try {
+      await deleteContactMessage(confirmDelete.id);
+      pushToast(t("contact_message_deleted"));
+      setConfirmDelete(null);
+    } catch (error) {
+      console.error("Contact message deletion failed:", error);
+      pushToast(t("contact_message_delete_failed"));
+    }
+  };
   return (
     <div className="flex flex-col gap-4">
       {!messages.length ? <EmptyState text={t("no_contact_messages")} /> : messages.map(message => (
@@ -1731,12 +1747,20 @@ function ContactMessagesPage() {
               <time className="text-xs" style={{ color: "var(--gray)" }}>
                 {t("sent_at")}: {new Date(message.created).toLocaleString(dateLocale)}
               </time>
+              <Btn size="sm" variant="danger" onClick={() => setConfirmDelete(message)}><Trash2 size={14} /> {t("delete_action")}</Btn>
             </div>
           </div>
           <p className="text-sm leading-relaxed whitespace-pre-wrap break-words mb-4" style={{ color: "var(--gray)" }}>{message.message}</p>
           {!message.read && <Btn size="sm" variant="ghost" onClick={() => dispatch({ type: "UPDATE_CONTACT_MESSAGE", id: message.id, patch: { read: true } })}><Check size={14} /> {t("mark_message_read")}</Btn>}
         </article>
       ))}
+      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title={t("confirm_delete_contact_message")}>
+        <p className="text-sm mb-6" style={{ color: "var(--gray)" }}>{t("contact_message_delete_warning")}</p>
+        <div className="flex gap-3 justify-end">
+          <Btn variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Btn>
+          <Btn variant="danger" onClick={removeMessage} disabled={!confirmDelete}>{t("delete_action")}</Btn>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -2557,7 +2581,7 @@ function AdminApp({ pushToast, exit }) {
       {active === "rooms" && <RoomsAdmin readOnly={user.role === "MANAGER"} pushToast={pushToast} />}
       {active === "bookings" && <BookingsAdmin role={user.role} pushToast={pushToast} />}
       {active === "guests" && <GuestsAdmin />}
-      {active === "contact_messages" && user.role === "ADMIN" && <ContactMessagesPage />}
+      {active === "contact_messages" && user.role === "ADMIN" && <ContactMessagesPage pushToast={pushToast} />}
       {active === "housekeeping" && user.role === "ADMIN" && <HousekeepingAdmin pushToast={pushToast} role={user.role} />}
       {active === "services" && user.role === "ADMIN" && <ServicesAdmin pushToast={pushToast} />}
       {active === "employees" && user.role === "ADMIN" && <EmployeesAdmin pushToast={pushToast} />}
@@ -2781,7 +2805,7 @@ function ReceptionApp({ pushToast, exit }) {
       {active === "bookings" && <ReceptionBookings pushToast={pushToast} />}
       {active === "rooms" && <ReceptionRooms />}
       {active === "guests" && <GuestsAdmin />}
-      {active === "contact_messages" && <ContactMessagesPage />}
+      {active === "contact_messages" && <ContactMessagesPage pushToast={pushToast} />}
       {active === "housekeeping" && <ReceptionHousekeeping pushToast={pushToast} />}
       {active === "services" && <ReceptionServices pushToast={pushToast} />}
     </DashboardShell>
